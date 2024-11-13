@@ -6,7 +6,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pickle
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score
+
+# Ruta del archivo CSV
+csv_path = "historial_comparacion.csv"
 
 # Configuración de Streamlit y estilos
 st.set_page_config(page_title="Comparación de Algoritmos", page_icon=":chart_with_upwards_trend:")
@@ -102,6 +105,19 @@ def preprocess_input(question, response_a, response_b):
     sentiment_features = np.array([[sentiment_score]])
     return np.hstack([tfidf_features, sentiment_features])
 
+# Función para cargar el historial desde el CSV con manejo de errores
+@st.cache_data
+def load_data():
+    try:
+        return pd.read_csv(csv_path)
+    except pd.errors.ParserError:
+        st.warning("El archivo CSV tiene un formato inconsistente. Algunas filas serán omitidas.")
+        return pd.read_csv(csv_path, on_bad_lines='skip')
+
+# Función para guardar el historial actualizado en el CSV
+def save_data(df):
+    df.to_csv(csv_path, index=False)
+
 # Cargar modelos entrenados
 @st.cache_resource
 def load_models():
@@ -113,9 +129,8 @@ def load_models():
             optimizer='adam',
             metrics=['accuracy']
         )
-        print("Modelo A cargado exitosamente.")
     except Exception as e:
-        print("Error al cargar Modelo A:", e)
+        st.warning(f"Error al cargar Modelo A: {e}")
 
     try:
         model_b = tf.keras.models.load_model("modelo_entrenado.h5", compile=False)
@@ -124,22 +139,31 @@ def load_models():
             optimizer='adam',
             metrics=['accuracy']
         )
-        print("Modelo B cargado exitosamente.")
     except Exception as e:
-        print("Error al cargar Modelo B:", e)
+        st.warning(f"Error al cargar Modelo B: {e}")
     return model_a, model_b
 
+# Función para calcular métricas acumuladas basadas en la comparación entre modelo y preferencia del usuario
+def calculate_model_user_based_metrics(df):
+    accuracy_values = []
+    f1_values = []
+    for i in range(1, len(df) + 1):
+        subset = df.iloc[:i]
+        y_pred = subset.apply(lambda row: 1 if row["Gana A"] == 1 else (0 if row["Gana B"] == 1 else -1), axis=1)
+        y_true = subset["User Preference"]
+        accuracy_values.append(accuracy_score(y_true, y_pred))
+        f1_values.append(f1_score(y_true, y_pred, average='macro'))
+    return accuracy_values, f1_values
+
+# Cargar modelos y datos
 model_a, model_b = load_models()
+df_comparison = load_data()
 
-# Inicializar el DataFrame en session_state para persistencia
+# Inicializar el estado de comparación y bloqueo si no existen
 if "df_comparison" not in st.session_state:
-    st.session_state.df_comparison = pd.DataFrame(columns=["Prompt", "Response A", "Response B", "Gana A", "Gana B", "Empate"])
-
-# Inicializar el estado de preferencia del usuario y su historial
-if "user_preference" not in st.session_state:
-    st.session_state.user_preference = None
-if "preference_history" not in st.session_state:
-    st.session_state.preference_history = {"Modelo A": 0, "Modelo B": 0}
+    st.session_state.df_comparison = df_comparison
+if "is_preference_locked" not in st.session_state:
+    st.session_state.is_preference_locked = False
 
 # Título de la Aplicación
 st.markdown(f"<h1 style='text-align: center; color: {colors['russian_violet']}'>Comparación de Algoritmos de Clasificación</h1>", unsafe_allow_html=True)
@@ -157,31 +181,71 @@ with col2:
     response_b_text = st.text_input("Respuesta del Modelo B:")
     model_b_name = st.text_input("Nombre del Modelo B:")
 
+# Checkboxes para mostrar las respuestas de los modelos
+show_model_a = st.checkbox("Mostrar respuesta del Modelo A")
+show_model_b = st.checkbox("Mostrar respuesta del Modelo B")
+
+# Mostrar las respuestas de los modelos seleccionados
+st.subheader("Respuestas de los modelos seleccionados:")
+if show_model_a:
+    st.write(f"**Respuesta del Modelo A**: {response_a_text}")
+if show_model_b:
+    st.write(f"**Respuesta del Modelo B**: {response_b_text}")
+
+# Verificar que al menos un modelo esté seleccionado para habilitar el botón de "Calcular Preferencia"
+calculate_button_disabled = not (show_model_a or show_model_b)
+
+# Selección de preferencia del usuario
+st.subheader("¿Qué respuesta prefieres tú?")
+user_selection = st.radio(
+    "Seleccione su respuesta preferida:",
+    options=["Prefiero la respuesta del Modelo A", "Prefiero la respuesta del Modelo B", "Empate"],
+    index=None,
+    key="user_selection",
+    disabled=st.session_state.is_preference_locked  # Bloquear si is_preference_locked es True
+)
+
 # Botón de procesamiento
-if st.button("Calcular Preferencia"):
+if st.button("Calcular Preferencia", disabled=calculate_button_disabled):
+    # Desbloquear el selector de preferencia al hacer clic en el botón
+    st.session_state.is_preference_locked = False
+    
     if user_question and response_a_text and response_b_text and model_a_name and model_b_name:
         # Preprocesar la entrada
         input_example = preprocess_input(user_question, response_a_text, response_b_text)
         
         try:
-            # Predicciones de ambos modelos
-            prediction_a = model_a.predict(input_example)
-            prediction_b = model_b.predict(input_example)
+            # Realizar predicciones según los modelos seleccionados
+            prediction_a = model_a.predict(input_example) if show_model_a else None
+            prediction_b = model_b.predict(input_example) if show_model_b else None
             st.subheader("Resultados de la evaluación")
-            st.subheader("En el modelo 1" )
-            if prediction_a[0][1] > prediction_a[0][2]:
+            
+            if prediction_a is not None and prediction_b is not None:
+                if prediction_a[0][1] > prediction_b[0][1]:
+                    st.write("La respuesta ganadora es la del Modelo A.")
+                    gana_a, gana_b, empate = 1, 0, 0
+                elif prediction_a[0][1] < prediction_b[0][1]:
+                    st.write("La respuesta ganadora es la del Modelo B.")
+                    gana_a, gana_b, empate = 0, 1, 0
+                else:
+                    st.write("Hay un empate entre las respuestas.")
+                    gana_a, gana_b, empate = 0, 0, 1
+            elif prediction_a is not None:
                 st.write("La respuesta ganadora es la del Modelo A.")
-            elif prediction_a[0][1] < prediction_a[0][2]:
+                gana_a, gana_b, empate = 1, 0, 0
+            elif prediction_b is not None:
                 st.write("La respuesta ganadora es la del Modelo B.")
+                gana_a, gana_b, empate = 0, 1, 0
             else:
-                st.write("Hay un empate entre las respuestas.")
+                st.write("Ningún modelo fue seleccionado para evaluación.")
+                gana_a, gana_b, empate = 0, 0, 1  # Caso especial
+
         except Exception as e:
             st.error(f"Error en la predicción: {e}")
+            gana_a, gana_b, empate = 0, 0, 0
 
-        # Calcular cuál ganó y actualizar el DataFrame en session_state
-        gana_a = 1 if prediction_a[0][1] > prediction_a[0][2] else 0
-        gana_b = 1 if prediction_a[0][1] < prediction_a[0][2] else 0
-        empate = 1 if prediction_a[0][1] == prediction_a[0][2] else 0
+        # Procesar la preferencia del usuario como valores numéricos
+        user_preference = 1 if user_selection == "Prefiero la respuesta del Modelo A" else (0 if user_selection == "Prefiero la respuesta del Modelo B" else -1)
 
         new_entry = pd.DataFrame({
             "Prompt": [user_question],
@@ -189,78 +253,64 @@ if st.button("Calcular Preferencia"):
             "Response B": [response_b_text],
             "Gana A": [gana_a],
             "Gana B": [gana_b],
-            "Empate": [empate]
+            "Empate": [empate],
+            "User Preference": [user_preference]
         })
-        
-        # Concatenate the new entry to the session state DataFrame
-        st.session_state.df_comparison = pd.concat([st.session_state.df_comparison, new_entry], ignore_index=True)
 
-        # Reset user preference after calculating
-        st.session_state.user_preference = None
+        # Concatenar la nueva entrada al DataFrame en session_state
+        st.session_state.df_comparison = pd.concat([st.session_state.df_comparison, new_entry], ignore_index=True)
+        
+        # Guardar el DataFrame actualizado en el CSV
+        save_data(st.session_state.df_comparison)
+
+        # Bloquear el selector de preferencia después de calcular
+        st.session_state.is_preference_locked = True
+
+# Cálculo de precisión y F1 acumulativo
+accuracy_values, f1_values = calculate_model_user_based_metrics(st.session_state.df_comparison)
 
 # Mostrar la tabla actualizada
 st.markdown(f"<h3 style='color: {colors['russian_violet']}; font-weight: bold;'>Tabla de Comparación</h3>", unsafe_allow_html=True)
 st.dataframe(st.session_state.df_comparison)
 
-# Selección de preferencia del usuario
-st.subheader("¿Qué respuesta prefieres tú?")
-
-# Mostrar opciones de preferencia solo si aún no se ha seleccionado, o si se ha hecho reset
-if st.session_state.user_preference is None:
-    user_selection = st.radio(
-        "Seleccione su respuesta preferida:",
-        options=["Prefiero la respuesta del Modelo A", "Prefiero la respuesta del Modelo B"],
-        index=None,  # Start without a default selection
-        key="temp_user_preference"  # Temporary key for the initial selection
-    )
-    # Update session state if a selection is made
-    if user_selection:
-        st.session_state.user_preference = user_selection
-else:
-    st.radio(
-        "Seleccione su respuesta preferida:",
-        options=["Prefiero la respuesta del Modelo A", "Prefiero la respuesta del Modelo B"],
-        index=0 if st.session_state.user_preference == "Prefiero la respuesta del Modelo A" else 1,
-        key="user_preference",
-        disabled=True  # Lock selection until reset
-    )
-
-# Actualizar el historial de preferencias cuando se hace una selección
-if st.session_state.user_preference:
-    if st.session_state.user_preference == "Prefiero la respuesta del Modelo A":
-        st.session_state.preference_history["Modelo A"] += 1
-    elif st.session_state.user_preference == "Prefiero la respuesta del Modelo B":
-        st.session_state.preference_history["Modelo B"] += 1
-
 # Gráficas Interactivas
-# Section for visualizing graphs
-st.markdown(f"<h3 style='color: {colors['russian_violet']}; font-weight: bold;'>Gráficas de Preferencias y Precisión</h3>", unsafe_allow_html=True)
-
-# Checkbox for showing or hiding the graphs
 show_graphs = st.checkbox("Visualizar Gráficas")
+if show_graphs and not st.session_state.df_comparison.empty:
+    # Preferencias del modelo (Gráfico de pastel interactivo)
+    df_model_prefs = pd.DataFrame([
+        {"Modelo": "Modelo A", "Count": st.session_state.df_comparison["Gana A"].sum()},
+        {"Modelo": "Modelo B", "Count": st.session_state.df_comparison["Gana B"].sum()},
+        {"Modelo": "Empate", "Count": st.session_state.df_comparison["Empate"].sum()}
+    ])
+    fig_model_prefs = px.pie(df_model_prefs, values="Count", names="Modelo", title="Preferencias del Modelo",
+                             color_discrete_sequence=[colors["peach"], colors["paynes_gray"], colors["light_blue"]])
+    st.plotly_chart(fig_model_prefs)
 
-# Check if there is any data in preference history or the comparison table
-if show_graphs:
-    if st.session_state.df_comparison.empty and all(value == 0 for value in st.session_state.preference_history.values()):
-        st.write("No hay datos disponibles para mostrar las gráficas.")
-    else:
-        # Preferencias del usuario (Gráfico de pastel interactivo)
-        df_prefs = pd.DataFrame(list(st.session_state.preference_history.items()), columns=["Modelo", "Count"])
-        fig_prefs = px.pie(df_prefs, values="Count", names="Modelo", title="Preferencias del Usuario", color_discrete_sequence=[colors["peach"], colors["paynes_gray"]])
-        st.plotly_chart(fig_prefs)
+    # Nueva gráfica de preferencias del usuario (Gráfico de pastel interactivo)
+    user_pref_counts = st.session_state.df_comparison["User Preference"].value_counts().rename(index={1: "Modelo A", 0: "Modelo B", -1: "Empate"})
+    df_user_prefs = pd.DataFrame({
+        "Preferencia": user_pref_counts.index,
+        "Count": user_pref_counts.values
+    })
+    fig_user_prefs = px.pie(df_user_prefs, values="Count", names="Preferencia", title="Preferencias del Usuario",
+                            color_discrete_sequence=[colors["peach"], colors["paynes_gray"], colors["light_blue"]])
+    st.plotly_chart(fig_user_prefs)
 
-        # Precisión de los algoritmos (Gráfico de línea interactivo)
-        accuracy_a = np.random.uniform(0.7, 0.95, 20)
-        accuracy_b = np.random.uniform(0.6, 0.9, 20)
-        df_accuracy = pd.DataFrame({
-            "Iteración": range(1, 21),
-            "Precisión Modelo A": accuracy_a,
-            "Precisión Modelo B": accuracy_b
-        })
-        fig_accuracy = go.Figure()
-        fig_accuracy.add_trace(go.Scatter(x=df_accuracy["Iteración"], y=df_accuracy["Precisión Modelo A"],
-                                          mode="lines+markers", name="Modelo A", line=dict(color=colors["paynes_gray"])))
-        fig_accuracy.add_trace(go.Scatter(x=df_accuracy["Iteración"], y=df_accuracy["Precisión Modelo B"],
-                                          mode="lines+markers", name="Modelo B", line=dict(color=colors["peach"])))
-        fig_accuracy.update_layout(title="Precisión de los Algoritmos", xaxis_title="Iteración", yaxis_title="Precisión")
-        st.plotly_chart(fig_accuracy)
+    # Gráfico de línea para precisión y F1-score con límites de 0 a 1
+    df_accuracy = pd.DataFrame({
+        "Iteración": range(1, len(accuracy_values) + 1),
+        "Precisión": accuracy_values,
+        "F1": f1_values
+    })
+    fig_accuracy = go.Figure()
+    fig_accuracy.add_trace(go.Scatter(x=df_accuracy["Iteración"], y=df_accuracy["Precisión"],
+                                      mode="lines+markers", name="Precisión", line=dict(color=colors["paynes_gray"])))
+    fig_accuracy.add_trace(go.Scatter(x=df_accuracy["Iteración"], y=df_accuracy["F1"],
+                                      mode="lines+markers", name="F1-Score", line=dict(color=colors["peach"])))
+    fig_accuracy.update_layout(
+        title="Precisión y F1-Score Basados en Comparación con Preferencia del Usuario",
+        xaxis_title="Iteración",
+        yaxis_title="Métricas",
+        yaxis=dict(range=[0, 1])  # Establecer el rango del eje y de 0 a 1
+    )
+    st.plotly_chart(fig_accuracy)
