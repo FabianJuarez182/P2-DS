@@ -1,0 +1,65 @@
+Prompt,Response A,Response B,Gana A,Gana B,Empate,User Preference
+Question 1?,Response A for question 1,Response B for question 1,1,0,0,1
+Question 2?,Response A for question 2,Response B for question 2,0,1,0,0
+Question 3?,Response A for question 3,Response B for question 3,0,0,1,-1
+Question 4?,Response A for question 4,Response B for question 4,1,0,0,1
+Question 5?,Response A for question 5,Response B for question 5,0,1,0,0
+Question 6?,Response A for question 6,Response B for question 6,1,0,0,-1
+Question 7?,Response A for question 7,Response B for question 7,0,0,1,1
+Question 8?,Response A for question 8,Response B for question 8,1,0,0,1
+Question 9?,Response A for question 9,Response B for question 9,0,1,0,0
+Question 10?,Response A for question 10,Response B for question 10,1,0,0,1
+Question 11?,Response A for question 11,Response B for question 11,1,0,0,1
+Question 12?,Response A for question 12,Response B for question 12,0,1,0,-1
+Question 13?,Response A for question 13,Response B for question 13,0,1,0,1
+Question 14?,Response A for question 14,Response B for question 14,0,0,1,-1
+Question 15?,Response A for question 15,Response B for question 15,1,0,0,1
+Question 16?,Response A for question 16,Response B for question 16,0,1,0,0
+Question 17?,Response A for question 17,Response B for question 17,0,0,1,-1
+Question 18?,Response A for question 18,Response B for question 18,1,0,0,-1
+Question 19?,Response A for question 19,Response B for question 19,0,1,0,-1
+Question 20?,Response A for question 20,Response B for question 20,1,0,0,1
+Question 21?,Response A for question 21,Response B for question 21,0,1,0,1
+Question 22?,Response A for question 22,Response B for question 22,1,0,0,1
+Question 23?,Response A for question 23,Response B for question 23,0,1,0,1
+Question 24?,Response A for question 24,Response B for question 24,0,0,1,1
+Question 25?,Response A for question 25,Response B for question 25,1,0,0,1
+Question 26?,Response A for question 26,Response B for question 26,1,0,0,0
+Question 27?,Response A for question 27,Response B for question 27,0,1,0,-1
+Question 28?,Response A for question 28,Response B for question 28,1,0,0,0
+Question 29?,Response A for question 29,Response B for question 29,0,1,0,0
+Question 30?,Response A for question 30,Response B for question 30,0,0,1,-1
+Question 31?,Response A for question 31,Response B for question 31,1,0,0,1
+Question 32?,Response A for question 32,Response B for question 32,0,1,0,0
+Question 33?,Response A for question 33,Response B for question 33,1,0,0,1
+Question 34?,Response A for question 34,Response B for question 34,0,1,0,0
+Question 35?,Response A for question 35,Response B for question 35,0,0,1,0
+Question 36?,Response A for question 36,Response B for question 36,1,0,0,0
+Question 37?,Response A for question 37,Response B for question 37,1,0,0,0
+Question 38?,Response A for question 38,Response B for question 38,0,1,0,-1
+Question 39?,Response A for question 39,Response B for question 39,1,0,0,1
+Question 40?,Response A for question 40,Response B for question 40,0,1,0,1
+Question 41?,Response A for question 41,Response B for question 41,1,0,0,-1
+Question 42?,Response A for question 42,Response B for question 42,0,1,0,1
+Question 43?,Response A for question 43,Response B for question 43,0,0,1,-1
+Question 44?,Response A for question 44,Response B for question 44,1,0,0,1
+Question 45?,Response A for question 45,Response B for question 45,0,1,0,-1
+Question 46?,Response A for question 46,Response B for question 46,1,0,0,1
+Question 47?,Response A for question 47,Response B for question 47,0,1,0,-1
+Question 48?,Response A for question 48,Response B for question 48,0,0,1,1
+Question 49?,Response A for question 49,Response B for question 49,1,0,0,0
+Question 50?,Response A for question 50,Response B for question 50,0,1,0,0
+Who are you?,Soy Chat GPT,Claude Your best friend in the world,0,1,0,0
+How are you?,"Fine and you, I have a great day",Very weel and you?,0,1,0,1
+"Hey, whats up?",Nothig good but Im happy and you?,Nah its alraight,0,0,1,1
+"Hey, whats up?",Nothig good but Im happy and you?,Nah its alraight,0,0,1,1
+"Hey, whats up?",Nothig good but Im happy and you?,Nah its alraight,0,1,0,1
+"Hey, whats up?",Its alraight,Nah ,0,1,0,1
+"Hey, whats up?",Its alraight,Nah ,0,1,0,1
+"Hey, whats up?",Its alraight,asdfasdf assdfasdf,0,1,0,1
+"Hey, whats up?","Its alraight, i think the day is beautiful",asdfasdf assdfasdf,0,1,0,1
+Who are you?,"Chat GPT4, your best friend",Claude Your best friend in the world,0,1,0,1
+Who are you?,"Chat GPT4, your best friend and your confident in this world. I can help you always",Claude Your best friend in the world,1,0,0,1
+Who are you?,"Chat GPT4, your best friend and your confident in this world. I can help you always",Claude Your best friend in the world,1,0,0,1
+Who are you?,"Chat GPT4, your best friend and your confident in this world. I can help you always",Claude Your best friend in the world,1,0,0,1
+Who are you?,Soy Chat GPT,Claude Your best friend in the world,0,1,0,0

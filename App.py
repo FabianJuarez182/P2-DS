@@ -159,11 +159,9 @@ def calculate_model_user_based_metrics(df):
 model_a, model_b = load_models()
 df_comparison = load_data()
 
-# Inicializar el estado de comparación y bloqueo si no existen
+# Inicializar el estado de comparación si no existen
 if "df_comparison" not in st.session_state:
     st.session_state.df_comparison = df_comparison
-if "is_preference_locked" not in st.session_state:
-    st.session_state.is_preference_locked = False
 
 # Título de la Aplicación
 st.markdown(f"<h1 style='text-align: center; color: {colors['russian_violet']}'>Comparación de Algoritmos de Clasificación</h1>", unsafe_allow_html=True)
@@ -176,41 +174,30 @@ col1, col2 = st.columns(2)
 with col1:
     response_a_text = st.text_input("Respuesta del Modelo A:")
     model_a_name = st.text_input("Nombre del Modelo A:")
+    show_model_a = st.checkbox("Mostrar respuesta del Modelo A")
 
 with col2:
     response_b_text = st.text_input("Respuesta del Modelo B:")
     model_b_name = st.text_input("Nombre del Modelo B:")
-
-# Checkboxes para mostrar las respuestas de los modelos
-show_model_a = st.checkbox("Mostrar respuesta del Modelo A")
-show_model_b = st.checkbox("Mostrar respuesta del Modelo B")
-
-# Mostrar las respuestas de los modelos seleccionados
-st.subheader("Respuestas de los modelos seleccionados:")
-if show_model_a:
-    st.write(f"**Respuesta del Modelo A**: {response_a_text}")
-if show_model_b:
-    st.write(f"**Respuesta del Modelo B**: {response_b_text}")
+    show_model_b = st.checkbox("Mostrar respuesta del Modelo B")
 
 # Verificar que al menos un modelo esté seleccionado para habilitar el botón de "Calcular Preferencia"
 calculate_button_disabled = not (show_model_a or show_model_b)
 
-# Selección de preferencia del usuario
+# Selección de preferencia del usuario (siempre está activo)
 st.subheader("¿Qué respuesta prefieres tú?")
 user_selection = st.radio(
     "Seleccione su respuesta preferida:",
     options=["Prefiero la respuesta del Modelo A", "Prefiero la respuesta del Modelo B", "Empate"],
-    index=None,
-    key="user_selection",
-    disabled=st.session_state.is_preference_locked  # Bloquear si is_preference_locked es True
+    index=0
 )
 
 # Botón de procesamiento
 if st.button("Calcular Preferencia", disabled=calculate_button_disabled):
-    # Desbloquear el selector de preferencia al hacer clic en el botón
-    st.session_state.is_preference_locked = False
-    
-    if user_question and response_a_text and response_b_text and model_a_name and model_b_name:
+    # Verificar si todos los campos están llenos antes de proceder
+    if not user_question or not response_a_text or not response_b_text or not model_a_name or not model_b_name:
+        st.warning("Por favor, complete todos los campos antes de calcular la preferencia.")
+    else:
         # Preprocesar la entrada
         input_example = preprocess_input(user_question, response_a_text, response_b_text)
         
@@ -218,27 +205,26 @@ if st.button("Calcular Preferencia", disabled=calculate_button_disabled):
             # Realizar predicciones según los modelos seleccionados
             prediction_a = model_a.predict(input_example) if show_model_a else None
             prediction_b = model_b.predict(input_example) if show_model_b else None
-            st.subheader("Resultados de la evaluación")
             
-            if prediction_a is not None and prediction_b is not None:
-                if prediction_a[0][1] > prediction_b[0][1]:
-                    st.write("La respuesta ganadora es la del Modelo A.")
+            # Mostrar el resultado de la evaluación para cada modelo
+            st.subheader("Resultados de la evaluación")
+            if prediction_a is not None:
+                if prediction_a[0][1] > prediction_a[0][2]:
+                    st.write("La respuesta ganadora en el Modelo A es: **Respuesta del Modelo A**")
                     gana_a, gana_b, empate = 1, 0, 0
-                elif prediction_a[0][1] < prediction_b[0][1]:
-                    st.write("La respuesta ganadora es la del Modelo B.")
-                    gana_a, gana_b, empate = 0, 1, 0
                 else:
-                    st.write("Hay un empate entre las respuestas.")
-                    gana_a, gana_b, empate = 0, 0, 1
-            elif prediction_a is not None:
-                st.write("La respuesta ganadora es la del Modelo A.")
-                gana_a, gana_b, empate = 1, 0, 0
-            elif prediction_b is not None:
-                st.write("La respuesta ganadora es la del Modelo B.")
-                gana_a, gana_b, empate = 0, 1, 0
-            else:
+                    st.write("La respuesta ganadora en el Modelo A es: **Respuesta del Modelo B**")
+                    gana_a, gana_b, empate = 0, 1, 0
+            if prediction_b is not None:
+                if prediction_b[0][1] > prediction_b[0][2]:
+                    st.write("La respuesta ganadora en el Modelo B es: **Respuesta del Modelo A**")
+                    gana_a, gana_b, empate = 1, 0, 0
+                else:
+                    st.write("La respuesta ganadora en el Modelo B es: **Respuesta del Modelo B**")
+                    gana_a, gana_b, empate = 0, 1, 0
+            if prediction_a is None and prediction_b is None:
                 st.write("Ningún modelo fue seleccionado para evaluación.")
-                gana_a, gana_b, empate = 0, 0, 1  # Caso especial
+                gana_a, gana_b, empate = 0, 0, 1
 
         except Exception as e:
             st.error(f"Error en la predicción: {e}")
@@ -262,9 +248,6 @@ if st.button("Calcular Preferencia", disabled=calculate_button_disabled):
         
         # Guardar el DataFrame actualizado en el CSV
         save_data(st.session_state.df_comparison)
-
-        # Bloquear el selector de preferencia después de calcular
-        st.session_state.is_preference_locked = True
 
 # Cálculo de precisión y F1 acumulativo
 accuracy_values, f1_values = calculate_model_user_based_metrics(st.session_state.df_comparison)
@@ -311,6 +294,6 @@ if show_graphs and not st.session_state.df_comparison.empty:
         title="Precisión y F1-Score Basados en Comparación con Preferencia del Usuario",
         xaxis_title="Iteración",
         yaxis_title="Métricas",
-        yaxis=dict(range=[0, 1])  # Establecer el rango del eje y de 0 a 1
+        yaxis=dict(range=[0, 1.1])  # Establecer el rango del eje y de 0 a 1
     )
     st.plotly_chart(fig_accuracy)
