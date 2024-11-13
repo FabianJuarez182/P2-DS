@@ -174,7 +174,7 @@ col1, col2 = st.columns(2)
 with col1:
     response_a_text = st.text_input("Respuesta del Modelo A:")
     model_a_name = st.text_input("Nombre del Modelo A:")
-    show_model_a = st.checkbox("Mostrar respuesta del Modelo A")
+    show_model_a = st.checkbox("Mostrar respuesta del Modelo TF-IDF + Sentiment Analysis")
 
 with col2:
     response_b_text = st.text_input("Respuesta del Modelo B:")
@@ -210,11 +210,14 @@ if st.button("Calcular Preferencia", disabled=calculate_button_disabled):
             st.subheader("Resultados de la evaluación")
             if prediction_a is not None:
                 if prediction_a[0][1] > prediction_a[0][2]:
-                    st.write("La respuesta ganadora en el Modelo A es: **Respuesta del Modelo A**")
+                    st.write("La respuesta ganadora en el Modelo TF-IDF + Sentiment Analysis es: **Respuesta del Modelo A**")
                     gana_a, gana_b, empate = 1, 0, 0
-                else:
-                    st.write("La respuesta ganadora en el Modelo A es: **Respuesta del Modelo B**")
+                if prediction_a[0][1] < prediction_a[0][2]:
+                    st.write("La respuesta ganadora en el Modelo TF-IDF + Sentiment Analysis: **Respuesta del Modelo B**")
                     gana_a, gana_b, empate = 0, 1, 0
+                else:
+                    st.write("La respuesta ganadora en el Modelo TF-IDF + Sentiment Analysis: **Empate**")
+                    gana_a, gana_b, empate = 0, 0, 1
             if prediction_b is not None:
                 if prediction_b[0][1] > prediction_b[0][2]:
                     st.write("La respuesta ganadora en el Modelo B es: **Respuesta del Modelo A**")
@@ -291,7 +294,7 @@ if show_graphs and not st.session_state.df_comparison.empty:
     fig_accuracy.add_trace(go.Scatter(x=df_accuracy["Iteración"], y=df_accuracy["F1"],
                                       mode="lines+markers", name="F1-Score", line=dict(color=colors["peach"])))
     fig_accuracy.update_layout(
-        title="Precisión y F1-Score Basados en Comparación con Preferencia del Usuario",
+        title="Precisión y F1-Score del Modelo TF-IDF + Sentiment Analysis Basados en Comparación con Preferencia del Usuario",
         xaxis_title="Iteración",
         yaxis_title="Métricas",
         yaxis=dict(range=[0, 1.1])  # Establecer el rango del eje y de 0 a 1
